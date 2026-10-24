@@ -71,6 +71,10 @@ could add support by wrapping the standard library's `json` module as follows:
     ValidationError: Expected `int`, got `str` - at `$.x`
 
 
+When converting into a `dict`, `convert` accepts dictionaries (including
+subclasses) and instances of `collections.abc.Mapping`. Custom
+mapping types can inherit from or register with `collections.abc.Mapping`.
+
 Since all protocols are different, `to_builtins` and `convert` have a few
 configuration options:
 

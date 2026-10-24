@@ -481,6 +481,7 @@ typedef struct {
     PyObject *StructType;
     PyTypeObject *EnumMetaType;
     PyTypeObject *ABCMetaType;
+    PyObject *MappingType;
     PyObject *_abc_init;
     PyObject *struct_lookup_cache;
     PyObject *str___weakref__;
@@ -22011,6 +22012,12 @@ static PyObject *
 convert_mapping_to_dict(
     ConvertState *self, PyObject *obj, TypeNode *type, PathNode *path
 ) {
+    int is_mapping = PyObject_IsInstance(obj, self->mod->MappingType);
+    if (is_mapping < 0) return NULL;
+    if (!is_mapping) {
+        return ms_validation_error(Py_TYPE(obj)->tp_name, type, path);
+    }
+
     PyObject *out = NULL;
     PyObject *temp = PyDict_New();
     if (temp == NULL) return NULL;
@@ -22916,6 +22923,7 @@ msgspec_clear(PyObject *m)
     Py_CLEAR(st->StructType);
     Py_CLEAR(st->EnumMetaType);
     Py_CLEAR(st->ABCMetaType);
+    Py_CLEAR(st->MappingType);
     Py_CLEAR(st->_abc_init);
     Py_CLEAR(st->struct_lookup_cache);
     Py_CLEAR(st->str___weakref__);
@@ -23026,6 +23034,7 @@ msgspec_traverse(PyObject *m, visitproc visit, void *arg)
     Py_VISIT(st->StructType);
     Py_VISIT(st->EnumMetaType);
     Py_VISIT(st->ABCMetaType);
+    Py_VISIT(st->MappingType);
     Py_VISIT(st->_abc_init);
     Py_VISIT(st->struct_lookup_cache);
     Py_VISIT(st->typing_union);
@@ -23264,6 +23273,9 @@ PyInit__core(void)
         goto error;
 
     SET_REF(_abc_init, "_abc_init");
+
+    IMPORT_TEMP_MODULE("collections.abc");
+    SET_REF(MappingType, "Mapping");
 
     /* Get the datetime.datetime.astimezone method */
     IMPORT_TEMP_MODULE("datetime");

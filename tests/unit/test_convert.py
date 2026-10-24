@@ -6,7 +6,7 @@ import math
 import sys
 import uuid
 from base64 import b64encode
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass, field
 from typing import (
     Annotated,
@@ -1218,6 +1218,56 @@ class TestDict:
     def test_dict_wrong_type(self):
         with pytest.raises(ValidationError, match=r"Expected `object`, got `int`"):
             assert convert(1, dict)
+
+    @pytest.mark.parametrize("has_keys", [False, True])
+    @pytest.mark.parametrize("strict", [False, True])
+    @pytest.mark.parametrize("from_attributes", [False, True])
+    def test_dict_rejects_duck_mapping(self, has_keys, strict, from_attributes):
+        class Table:
+            def __getitem__(self, key):
+                pytest.fail("Should not access non-mapping items")
+
+        if has_keys:
+
+            def keys(self):
+                pytest.fail("Should not access non-mapping keys")
+
+            Table.keys = keys
+
+        class Ex(Struct):
+            table: dict[str, Any]
+
+        with pytest.raises(ValidationError) as rec:
+            convert(
+                {"table": Table()},
+                Ex,
+                strict=strict,
+                from_attributes=from_attributes,
+            )
+        assert str(rec.value) == "Expected `object`, got `Table` - at `$.table`"
+
+    @pytest.mark.parametrize("registered", [False, True])
+    def test_dict_accepts_readonly_mapping(self, registered):
+        class ReadOnlyMapping:
+            def __getitem__(self, key):
+                return {"x": 1}[key]
+
+            def __iter__(self):
+                return iter(["x"])
+
+            def __len__(self):
+                return 1
+
+        if registered:
+            ReadOnlyMapping.keys = Mapping.keys
+            Mapping.register(ReadOnlyMapping)
+            cls = ReadOnlyMapping
+        else:
+
+            class cls(ReadOnlyMapping, Mapping):
+                pass
+
+        assert convert(cls(), dict[str, float]) == {"x": 1.0}
 
     def test_str_formatted_keys(self):
         msg = {uuid.uuid4(): 1, uuid.uuid4(): 2}
