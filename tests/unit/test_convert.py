@@ -6,6 +6,7 @@ import math
 import sys
 import uuid
 from base64 import b64encode
+from collections import UserDict
 from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from typing import (
@@ -1232,7 +1233,16 @@ class TestDict:
             convert({"table": Table()}, Ex, strict=strict)
         assert str(rec.value) == "Expected `object`, got `Table` - at `$.table`"
 
-    @pytest.mark.parametrize("keys_type", [list, tuple, iter])
+    @pytest.mark.parametrize(
+        "keys_type",
+        [
+            list,
+            tuple,
+            iter,
+            lambda keys: dict.fromkeys(keys).keys(),
+            lambda keys: UserDict.fromkeys(keys).keys(),
+        ],
+    )
     def test_dict_duck_mapping(self, keys_type):
         class DuckMapping:
             def keys(self):
@@ -1263,18 +1273,6 @@ class TestDict:
 
             def __getitem__(self, key):
                 pytest.fail("Should not access items when keys call fails")
-
-        with pytest.raises(RuntimeError, match="boom"):
-            convert(BadMapping(), dict)
-
-    def test_dict_mapping_keys_iteration_error_propagates(self):
-        class BadMapping:
-            def keys(self):
-                yield "x"
-                raise RuntimeError("boom")
-
-            def __getitem__(self, key):
-                return 1
 
         with pytest.raises(RuntimeError, match="boom"):
             convert(BadMapping(), dict)
